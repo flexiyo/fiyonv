@@ -3,7 +3,19 @@
  */
 
 import {AppRegistry} from 'react-native';
-import App from './App';
+import ContextProviders from './src/context/ContextProviders.jsx';
+import App from './src/App';
 import {name as appName} from './app.json';
+import audio from 'kaushal-react-native-track-player';
 
-AppRegistry.registerComponent(appName, () => App);
+const RootComponent = () => (
+  <ContextProviders>
+    <App />
+  </ContextProviders>
+);
+
+AppRegistry.registerComponent(appName, () => RootComponent);
+
+audio.registerPlaybackService(() =>
+  require('./src/services/audioPlaybackService.js'),
+);
