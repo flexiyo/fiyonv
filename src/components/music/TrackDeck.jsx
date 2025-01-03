@@ -1,17 +1,10 @@
 import React, {useState, useEffect, useContext, useRef} from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  PanResponder,
-} from "react-native";
+import {View, Text, TouchableOpacity, Image, Share} from "react-native";
 import {openDatabase} from "react-native-sqlite-storage";
-import MaIcon from "react-native-vector-icons/MaterialIcons";
-import FaIcon6 from "react-native-vector-icons/FontAwesome6";
 import BottomSheet, {BottomSheetScrollView} from "@gorhom/bottom-sheet";
 import {Svg, Path} from "react-native-svg";
+import MaIcon from "react-native-vector-icons/MaterialIcons";
+import FaIcon6 from "react-native-vector-icons/FontAwesome6";
 
 import MusicContext from "../../context/items/MusicContext";
 import useMusicUtils from "../../hooks/useMusicUtils";
@@ -94,6 +87,17 @@ const TrackDeck = () => {
       });
     } catch (error) {
       console.error("Error in cacheTrackData:", error);
+    }
+  };
+
+  const shareTrack = async () => {
+    try {
+      await Share.share({
+        title: `Share ${currentTrack.name}`,
+        message: `https://flexiyo.web.app/music?track=${currentTrack.id}`,
+      });
+    } catch (error) {
+      console.log("Error sharing:", error);
     }
   };
 

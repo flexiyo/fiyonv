@@ -1,4 +1,5 @@
-import {ScrollView, TouchableOpacity, View, Text} from "react-native";
+import {ScrollView, View, Text} from "react-native";
+import {TouchableOpacity} from "react-native-gesture-handler";
 import TodayPicks from "../components/home/TodayPicks";
 import Post from "../components/home/Post";
 

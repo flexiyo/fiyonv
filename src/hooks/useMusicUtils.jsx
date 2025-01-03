@@ -171,6 +171,27 @@ const useMusicUtils = () => {
     }
   };
 
+  const getTracksFromDB = async () => {
+    try {
+      return new Promise((resolve, reject) => {
+        db.transaction(txn => {
+          txn.executeSql(
+            `SELECT * FROM tracks`,
+            [],
+            (tx, result) => {
+              const rows = result.rows._array;
+              resolve(rows);
+            },
+            error => reject(error),
+          );
+        });
+      });
+    } catch (error) {
+      console.error("Error fetching tracks from SQLite:", error);
+      return [];
+    }
+  };
+
   const handleAudioPlay = useCallback(() => {
     if (audio) {
       audio.play();
@@ -205,6 +226,7 @@ const useMusicUtils = () => {
     getTrack,
     getTrackLyrics,
     getTrackData,
+    getTracksFromDB,
     cacheTrackData,
     handleAudioPlay,
     handleAudioPause,

@@ -1,8 +1,9 @@
 import "./App.css";
-import React, { useContext, useEffect, useRef } from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import React, {useContext, useEffect, useRef, useState} from "react";
+import {NavigationContainer} from "@react-navigation/native";
+import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import {GestureHandlerRootView} from "react-native-gesture-handler";
+import NetInfo from "@react-native-community/netinfo";
 
 import {
   Home,
@@ -25,12 +26,25 @@ import LoadingScreen from "./components/app/LoadingScreen";
 import UserContext from "./context/items/UserContext";
 import AppContext from "./context/items/AppContext";
 
-const { Navigator, Screen } = createNativeStackNavigator();
+const {Navigator, Screen} = createNativeStackNavigator();
 
 const App = () => {
-  const { isAppLoading } = useContext(AppContext);
-  const { loading, isUserAuthenticated } = useContext(UserContext);
   const navigationRef = useRef(null);
+
+  const {isAppLoading} = useContext(AppContext);
+  const {loading, isUserAuthenticated} = useContext(UserContext);
+  const [connectedToInternet, setConnectedToInternet] = useState(() =>
+    NetInfo.fetch().then(state => state.isConnected),
+  );
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setConnectedToInternet(state.isConnected);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (isUserAuthenticated && navigationRef.current) {
@@ -43,23 +57,23 @@ const App = () => {
   }
 
   const authenticatedRoutes = [
-    { name: "Home", component: Home },
-    { name: "Profile", component: Profile },
-    { name: "Search", component: Search },
-    { name: "Music", component: Music },
-    { name: "Create", component: Create },
-    { name: "Clips", component: Clips },
-    { name: "DirectInbox", component: DirectInbox },
-    { name: "DirectChat", component: DirectChat },
-    { name: "Stories", component: Stories },
-    { name: "Notifications", component: Notifications },
-    { name: "NotFound404", component: NotFound404 },
+    {name: "Home", component: Home},
+    {name: "Profile", component: Profile},
+    {name: "Search", component: Search},
+    {name: "Music", component: Music, params: {connectedToInternet}},
+    {name: "Create", component: Create},
+    {name: "Clips", component: Clips},
+    {name: "DirectInbox", component: DirectInbox},
+    {name: "DirectChat", component: DirectChat},
+    {name: "Stories", component: Stories},
+    {name: "Notifications", component: Notifications},
+    {name: "NotFound404", component: NotFound404},
   ];
 
   const unauthenticatedRoutes = [
-    { name: "AuthLogin", component: AuthLogin },
-    { name: "AuthSignup", component: AuthSignup },
-    { name: "Music", component: Music },
+    {name: "AuthLogin", component: AuthLogin},
+    {name: "AuthSignup", component: AuthSignup},
+    {name: "Music", component: Music, params: {connectedToInternet}},
   ];
 
   return (
@@ -69,25 +83,37 @@ const App = () => {
         {isUserAuthenticated ? (
           <>
             <Navbar />
-            <Navigator initialRouteName="Home">
-              {authenticatedRoutes.map((route) => (
+            <Navigator
+              screenOptions={{
+                lazy: true,
+                headerShown: false,
+                animation: "none",
+              }}
+              initialRouteName="Home">
+              {authenticatedRoutes.map(route => (
                 <Screen
                   key={route.name}
                   name={route.name}
                   component={route.component}
-                  options={{ headerShown: false }}
+                  initialParams={route.params}
                 />
               ))}
             </Navigator>
           </>
         ) : (
-          <Navigator initialRouteName="AuthLogin">
-            {unauthenticatedRoutes.map((route) => (
+          <Navigator
+            screenOptions={{
+              lazy: true,
+              headerShown: false,
+              animation: "none",
+            }}
+            initialRouteName="AuthLogin">
+            {unauthenticatedRoutes.map(route => (
               <Screen
                 key={route.name}
                 name={route.name}
                 component={route.component}
-                options={{ headerShown: false }}
+                initialParams={route.params}
               />
             ))}
           </Navigator>

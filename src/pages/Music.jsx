@@ -4,32 +4,31 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   Image,
-  ScrollView,
-  Modal,
-  Alert,
   ActivityIndicator,
-  ProgressViewIOS,
+  Alert,
 } from "react-native";
-import SQLite from "react-native-sqlite-storage";
+import {TouchableOpacity} from "react-native-gesture-handler";
+import RNFSTurbo from "react-native-fs-turbo";
+import CustomMusicModals from "../components/music/CustomMusicModals";
 
 import {fiyosaavnApiBaseUri} from "../constants.js";
 import AppContext from "../context/items/AppContext";
 import MusicContext from "../context/items/MusicContext";
 import CustomTopNavbar from "../layout/items/CustomTopNavbar";
-import TrackItem from "../components/music/TrackItem";
 import TrackDeck from "../components/music/TrackDeck";
 import useMusicUtils from "../hooks/useMusicUtils";
+import TrackItemsList from "../components/music/TrackItemsList.jsx";
 
-const dbName = "MusicCacheDB.db";
-let db;
-
-const Music = ({connectedToInternet}) => {
+const Music = () => {
+  // Context values
   const {contentQuality, setContentQuality} = useContext(AppContext);
   const {topTracks, setTopTracks, currentTrack} = useContext(MusicContext);
-  const {getTrack, getTrackData, handleAudioPause} = useMusicUtils();
 
+  // Custom hooks
+  const {getTrackData, getTracksFromDB, handleAudioPause} = useMusicUtils();
+
+  // State variables
   const [searchText, setSearchText] = useState("");
   const [printError, setPrintError] = useState("");
   const [apiError, setApiError] = useState(false);
@@ -40,31 +39,19 @@ const Music = ({connectedToInternet}) => {
   const [isMusicSettingsModalOpen, setIsMusicSettingsModalOpen] =
     useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  const [isSpeechModalOpen, setIsSpeechModalOpen] = useState(false);
+  const [isSpeechModalOpen, setIsSpeechModalOpen] = useState(true);
   const [speechListening, setSpeechListening] = useState(false);
   const [speechTranscript, setSpeechTranscript] = useState("");
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const connectedToInternet = true;
 
-  const openDB = async () => {
-    return new Promise((resolve, reject) => {
-      db = SQLite.openDatabase(
-        {
-          name: dbName,
-          location: "default",
-        },
-        () => {
-          resolve(db);
-        },
-        error => {
-          console.error("Error opening database:", error);
-          reject(error);
-        },
-      );
-    });
-  };
-
+  // Search tracks function
   const searchTracks = useCallback(
     async searchTerm => {
+      if (!searchTerm.trim()) {
+        setTracks(topTracks);
+        return;
+      }
       try {
         setApiLoading(true);
         const {data: response} = await axios.get(
@@ -79,65 +66,64 @@ const Music = ({connectedToInternet}) => {
         );
         setTracks(response.data.results);
         setApiError(false);
-        setApiLoading(false);
-        return response.data.results;
       } catch (error) {
         setApiError(true);
         setPrintError(`${error.code} : ${error.message}`);
+      } finally {
         setApiLoading(false);
       }
     },
-    [fiyosaavnApiBaseUri],
+    [topTracks],
   );
 
-  const getTracksFromDB = async () => {
-    try {
-      if (!db) await openDB();
-      return new Promise((resolve, reject) => {
-        db.transaction(txn => {
-          txn.executeSql(
-            `SELECT * FROM tracks`,
-            [],
-            (tx, result) => {
-              const rows = result.rows._array;
-              resolve(rows);
-            },
-            error => reject(error),
-          );
-        });
-      });
-    } catch (error) {
-      console.error("Error fetching tracks from SQLite:", error);
-      return [];
-    }
-  };
-
+  // Fetch top tracks function
   const getTopTracks = async () => {
+    if (!connectedToInternet) {
+      const tracksFromDB = await getTracksFromDB();
+      setTopTracks(tracksFromDB);
+      setTracks(tracksFromDB);
+      setApiLoading(false);
+      return;
+    }
+
     setApiLoading(true);
     try {
-      let tracks;
+      let fetchedTracks;
       if (topTracks.length > 0) {
-        tracks = topTracks;
+        fetchedTracks = topTracks;
       } else {
         const {data: response} = await axios.get(
           `${fiyosaavnApiBaseUri}/playlists?id=1134543272&limit=40`,
         );
-        tracks = response.data.songs.sort(() => Math.random() - 0.5);
+        fetchedTracks = response.data.songs.sort(() => Math.random() - 0.5);
       }
-      setTopTracks(tracks);
-      setTracks(tracks);
+      setTopTracks(fetchedTracks);
+      setTracks(fetchedTracks);
     } catch (error) {
       console.error("Error fetching top tracks from API:", error);
+      setApiError(true);
+      setPrintError(
+        "Error fetching top tracks. Please check your internet connection.",
+      );
     } finally {
       setApiLoading(false);
     }
   };
 
+  // useEffect for initial track load and network change
   useEffect(() => {
     getTopTracks();
-  }, []);
+  }, [connectedToInternet]);
 
-  const downloadTrack = async modalDownloadData => {
+  // Handles track download
+  const downloadTrack = async () => {
+    if (!modalDownloadData?.fileUrl) {
+      Alert.alert(
+        "Download Error",
+        "No download URL found. Please select a valid track.",
+      );
+      return;
+    }
     try {
       setDownloadProgress(0);
       const {data} = await axios.get(modalDownloadData.fileUrl, {
@@ -150,39 +136,43 @@ const Music = ({connectedToInternet}) => {
         },
       });
 
-      const base64 = btoa(
+      if (
+        !RNFSTurbo.exists(`${RNFSTurbo.ExternalStorageDirectoryPath}/flexiyo`)
+      ) {
+       await RNFSTurbo.mkdir(`${RNFSTurbo.ExternalStorageDirectoryPath}/flexiyo`);
+      }
+
+      const mp4Path = `${RNFSTurbo.ExternalStorageDirectoryPath}/flexiyo/${modalDownloadData.fileName}`;
+      const base64MP4 = btoa(
         new Uint8Array(data).reduce(
-          (data, byte) => data + String.fromCharCode(byte),
+          (acc, byte) => acc + String.fromCharCode(byte),
           "",
         ),
       );
-      // const filePath = `${RNFS.DocumentDirectoryPath}/${modalDownloadData.fileName}`;
-      // await RNFS.writeFile(filePath, base64, 'base64');
+
+     await RNFSTurbo.writeFile(mp4Path, base64MP4, "base64");
       setDownloadProgress(100);
-      // Alert.alert('Download Complete', `File saved at: ${filePath}`);
+      Alert.alert("Download Complete", `File saved at: ${mp4Path}`);
     } catch (error) {
-      console.error(`Error downloading track: ${error.message}`);
+      console.error("Error during download:", error);
       Alert.alert(
         "Download Failed",
         "There was an error downloading the file.",
       );
-      setDownloadProgress(0);
     } finally {
       setIsDownloadModalOpen(false);
       setDownloadProgress(0);
     }
   };
 
+  // Handle search text change
   const handleSearchChange = event => {
     const value = event.nativeEvent.text;
     setSearchText(value);
-    if (value.trim() !== "") {
-      searchTracks(value);
-    } else {
-      getTopTracks();
-    }
+    searchTracks(value);
   };
 
+  // Open Download Modal Function
   const openDownloadModal = async trackId => {
     try {
       setIsDownloadLoading(true);
@@ -192,27 +182,37 @@ const Music = ({connectedToInternet}) => {
       } else {
         trackData = currentTrack;
       }
+
+      if (!trackData) {
+        Alert.alert("Error", "Track data not found.");
+        return;
+      }
+
       setModalDownloadData({
         fileUrl: trackData.link,
         fileName: `${trackData.name} - ${trackData.artists
           .split(",")[0]
-          .trim()}.mp3`,
+          .trim()}.mp4`,
         fileImage: trackData.image,
       });
       setIsDownloadModalOpen(true);
       setApiError(false);
     } catch (error) {
+      console.error("Error opening download modal:", error);
       setApiError(true);
       setPrintError(`${error.code} : ${error.message}`);
+      Alert.alert("Error", "Could not fetch track data for download.");
     } finally {
       setIsDownloadLoading(false);
     }
   };
 
+  // Close download modal
   const closeDownloadModal = () => {
     setIsDownloadModalOpen(false);
   };
 
+  // Open speech Modal function
   const openSpeechModal = async () => {
     setIsSpeechModalOpen(true);
     try {
@@ -221,15 +221,18 @@ const Music = ({connectedToInternet}) => {
       handleAudioPause();
     } catch (error) {
       console.error("Error starting speech recognition:", error);
+      Alert.alert("Error", "Failed to start speech recognition.");
     }
   };
 
+  // Close speech modal function
   const closeSpeechModal = useCallback(() => {
     setIsSpeechModalOpen(false);
     // Voice.stop();
     setSpeechListening(false);
   }, []);
 
+  // Listen to the speech results
   useEffect(() => {
     const speechResultsHandler = event => {
       if (event.value && event.value.length > 0) {
@@ -252,56 +255,33 @@ const Music = ({connectedToInternet}) => {
     }
   }, [speechListening, speechTranscript, closeSpeechModal, searchTracks]);
 
+  // Open Settings Modal
   const openMusicSettings = async () => {
     setIsMusicSettingsModalOpen(true);
   };
 
+  // Close Settings Modal
   const closeMusicSettingsModal = async () => {
     setIsMusicSettingsModalOpen(false);
   };
 
-  const renderTracks = () => {
-    return tracks.map((track, index) => (
-      <TrackItem
-        key={index}
-        index={index}
-        track={track}
-        onGetTrack={getTrack}
-        onOpenDownloadModal={trackId => openDownloadModal(trackId)}
-        isDownloadLoading={isDownloadLoading}
-      />
-    ));
-  };
-  const onShare = async () => {
-    try {
-      const shareOptions = {
-        message: `https://flexiyo.web.app/music?track=${currentTrack.id}`,
-      };
-      await Share.open(shareOptions);
-    } catch (error) {
-      console.log("Error sharing:", error);
-    }
-  };
-
-  const renderSpeechModalWaves = () => {
-    return (
-      <View className="speechWave">
-        <View
-          className="speechWaveBoxContainer"
-          style={{
-            outline:
-              !speechTranscript && !speechListening ? "2px solid red" : 0,
-          }}
-          onClick={openSpeechModal}>
-          <View className="speechWaveBox speechWaveBox1" />
-          <View className="speechWaveBox speechWaveBox2" />
-          <View className="speechWaveBox speechWaveBox3" />
-          <View className="speechWaveBox speechWaveBox4" />
-          <View className="speechWaveBox speechWaveBox5" />
-        </View>
-      </View>
-    );
-  };
+  // Renders the speech modal waves
+  const renderSpeechModalWaves = () => (
+    <View className="speechWave">
+      <TouchableOpacity
+        className="speechWaveBoxContainer"
+        style={{
+          outline: !speechTranscript && !speechListening ? "2px solid red" : 0,
+        }}
+        onPress={openSpeechModal}>
+        <View className="speechWaveBox speechWaveBox1" />
+        <View className="speechWaveBox speechWaveBox2" />
+        <View className="speechWaveBox speechWaveBox3" />
+        <View className="speechWaveBox speechWaveBox4" />
+        <View className="speechWaveBox speechWaveBox5" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View className="flex-1 bg-[#000b13]">
@@ -324,121 +304,36 @@ const Music = ({connectedToInternet}) => {
             🎤
           </Text>
         </TouchableOpacity>
-        <Text className={`text-gray-500`}>{apiLoading ? "..." : "🔍"}</Text>
+        <Text className={`text-gray-500`}>
+          {apiLoading ? <ActivityIndicator color="#A0A0A0" /> : "🔍"}
+        </Text>
       </View>
       {apiError && <Text className="text-red-500 px-3">{printError}</Text>}
-      <ScrollView className="flex-1 px-3">{renderTracks()}</ScrollView>
-      <Modal
-        transparent
-        visible={isMusicSettingsModalOpen}
-        onRequestClose={closeMusicSettingsModal}
-        animationType="slide">
-        <View className="flex-1 bg-black bg-opacity-70 justify-center items-center">
-          <View className="bg-gray-900 rounded-lg w-4/5 p-6">
-            <Text className="text-white text-lg font-bold">Settings</Text>
-            <View className="border-b border-gray-500 mt-2" />
-            <View className="flex flex-row justify-between items-center py-3">
-              <Text className="text-gray-400 font-semibold">
-                Content Quality
-              </Text>
-              <View className="flex flex-row items-center">
-                {["low", "normal", "high"].map(quality => (
-                  <TouchableOpacity
-                    key={quality}
-                    onPress={() => setContentQuality(quality)}
-                    className={`bg-gray-800 p-2 rounded mr-2 ${
-                      contentQuality === quality ? "bg-green-500" : ""
-                    }`}>
-                    <Text className="text-white capitalize">{quality}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={closeMusicSettingsModal}
-              className="mt-4">
-              <Text className="text-white text-center">Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        transparent
-        visible={isDownloadModalOpen}
-        onRequestClose={closeDownloadModal}
-        animationType="slide">
-        <View className="flex-1 bg-black bg-opacity-70 justify-center items-center">
-          <View className="bg-gray-900 rounded-lg w-4/5 p-6">
-            <Text className="text-white text-lg font-bold mb-3">
-              Do you want to download?
-            </Text>
-            <View className="flex flex-row my-4 items-center bg-gray-800 p-2 rounded">
-              <Image
-                source={{uri: modalDownloadData.fileImage}}
-                className="w-14 h-14 rounded"
-              />
-              <Text className="text-white mx-2">
-                {modalDownloadData.fileName}
-              </Text>
-            </View>
-            <Text className="mb-3 text-white">
-              Download in progress: {downloadProgress}%
-            </Text>
-            {Platform.OS === "ios" ? (
-              <ProgressViewIOS progress={downloadProgress / 100} />
-            ) : (
-              <ActivityIndicator
-                animating={downloadProgress < 100}
-                size="large"
-                color="white"
-              />
-            )}
-            <View className="flex flex-row justify-around mt-5">
-              <TouchableOpacity
-                onPress={closeDownloadModal}
-                className="bg-gray-700 px-4 py-2 rounded">
-                <Text className="text-white text-center">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => downloadTrack(modalDownloadData)}
-                className="bg-green-600 px-4 py-2 rounded">
-                <Text className="text-white text-center">Download</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        transparent
-        visible={isSpeechModalOpen}
-        onRequestClose={closeSpeechModal}
-        animationType="slide">
-        <View className="flex-1 bg-black bg-opacity-70 justify-center items-center">
-          <View className="bg-gray-900 rounded-lg w-4/5 p-6 text-center">
-            {renderSpeechModalWaves()}
-            <View className="text-center">
-              {!speechTranscript && !speechListening ? (
-                <Text className="text-white">
-                  Didn't catch that. Speak again.
-                </Text>
-              ) : !speechTranscript ? (
-                <Text className="text-white">
-                  Say "{topTracks[0] && topTracks[0].name}"
-                </Text>
-              ) : (
-                <Text className="text-white">{speechTranscript}</Text>
-              )}
-              {!speechTranscript && !speechListening && (
-                <TouchableOpacity
-                  onPress={openSpeechModal}
-                  className="bg-gray-700 px-4 py-2 mt-3 rounded">
-                  <Text className="text-white text-center">Try Again</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <View className="flex-1 px-3">
+        <TrackItemsList
+          tracks={tracks}
+          onOpenDownloadModal={openDownloadModal}
+        />
+      </View>
+      <CustomMusicModals
+        isMusicSettingsModalOpen={isMusicSettingsModalOpen}
+        closeMusicSettingsModal={closeMusicSettingsModal}
+        contentQuality={contentQuality}
+        setContentQuality={setContentQuality}
+        isDownloadModalOpen={isDownloadModalOpen}
+        closeDownloadModal={closeDownloadModal}
+        modalDownloadData={modalDownloadData}
+        downloadProgress={downloadProgress}
+        downloadTrack={downloadTrack}
+        isDownloadLoading={isDownloadLoading}
+        isSpeechModalOpen={isSpeechModalOpen}
+        closeSpeechModal={closeSpeechModal}
+        speechTranscript={speechTranscript}
+        speechListening={speechListening}
+        topTracks={topTracks}
+        openSpeechModal={openSpeechModal}
+        renderSpeechModalWaves={renderSpeechModalWaves}
+      />
       <TrackDeck />
     </View>
   );
