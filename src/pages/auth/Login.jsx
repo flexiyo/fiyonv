@@ -1,38 +1,32 @@
-import React, {useState, useEffect, useContext} from 'react';
-import {
-  ScrollView,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import {fiyoauthApiBaseUri} from '../../constants.js';
-import customAxios from '../../utils/customAxios.js';
-import * as Yup from 'yup';
-import {useFormik} from 'formik';
-import UserContext from '../../context/items/UserContext';
-import {MMKV} from 'react-native-mmkv';
+import React, {useState, useEffect, useContext} from "react";
+import {ScrollView, View, Text, TextInput} from "react-native";
+import {TouchableOpacity} from "react-native-gesture-handler";
+import {fiyoauthApiBaseUri} from "../../constants.js";
+import customAxios from "../../utils/customAxios.js";
+import * as Yup from "yup";
+import {useFormik} from "formik";
+import UserContext from "../../context/items/UserContext";
+import {MMKV} from "react-native-mmkv";
 
 const mmkvStorage = new MMKV();
 
 const Login = ({navigation}) => {
   const {isUserAuthenticated, setIsUserAuthenticated, setUserInfo} =
     useContext(UserContext);
-  const [alertText, setAlertText] = useState('');
+  const [alertText, setAlertText] = useState("");
   const [isForgotPasswordClicked, setIsForgotPasswordClicked] = useState(false);
   const [isLoginUserAccountReqLoading, setIsLoginUserAccountReqLoading] =
     useState(false);
 
   const LoginSchema = Yup.object().shape({
-    username: Yup.string().required('Email or Username is required'),
-    password: Yup.string().required('Password is required'),
+    username: Yup.string().required("Email or Username is required"),
+    password: Yup.string().required("Password is required"),
   });
 
   const formik = useFormik({
     initialValues: {
-      username: '',
-      password: '',
+      username: "",
+      password: "",
     },
     validationSchema: LoginSchema,
     onSubmit: values => {
@@ -42,7 +36,7 @@ const Login = ({navigation}) => {
 
   useEffect(() => {
     if (isUserAuthenticated) {
-      navigation.navigate('Home');
+      navigation.navigate("Home");
     }
   }, [isUserAuthenticated]);
 
@@ -62,9 +56,9 @@ const Login = ({navigation}) => {
       setIsUserAuthenticated(true);
       setIsLoginUserAccountReqLoading(false);
       setUserInfo(response?.data?.data);
-      mmkvStorage.set('userInfo', JSON.stringify(response?.data?.data));
+      mmkvStorage.set("userInfo", JSON.stringify(response?.data?.data));
     } catch (error) {
-      setAlertText(error.response?.data?.message || 'Something went wrong');
+      setAlertText(error.response?.data?.message || "Something went wrong");
       setIsLoginUserAccountReqLoading(false);
       setIsUserAuthenticated(false);
     }
@@ -73,69 +67,78 @@ const Login = ({navigation}) => {
   const handleForgotPasswordClick = () => {
     setIsForgotPasswordClicked(true);
   };
+
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer} id="login">
-      <View style={styles.authMain}>
-        <View style={styles.authForms}>
-          <Text style={styles.welcomeBackText}>Welcome back!</Text>
-          <Text style={styles.credentialsText}>
+    <ScrollView
+      contentContainerStyle={{flexGrow: 1, backgroundColor: "#121212"}}
+      id="login">
+      <View className="flex-1 justify-center items-center">
+        <View className="w-4/5">
+          <Text className="text-2xl font-bold mb-2 text-center text-white">
+            Welcome back!
+          </Text>
+          <Text className="text-sm text-gray-400 text-center">
             Please enter your credentials to continue
           </Text>
           {alertText ? (
-            <View style={styles.alertContainer}>
-              <Text style={styles.alertText}>{alertText}</Text>
+            <View className="bg-[#331a1a] border-l-[#ff4d4d] border-l-4 p-2 rounded-md mt-5">
+              <Text className="text-[#ff4d4d] text-center">{alertText}</Text>
             </View>
           ) : null}
-          <View>
+          <View className="my-5">
             <TextInput
-              style={styles.textInput}
+              className="h-14 my-2 border-[#444] border rounded-md mt-3 px-2 bg-[#333] text-white"
               placeholder="Email or Username *"
               value={formik.values.username}
-              onChangeText={formik.handleChange('username')}
-              onBlur={formik.handleBlur('username')}
-              error={formik.touched.username && Boolean(formik.errors.username)}
-              helperText={formik.touched.username && formik.errors.username}
+              onChangeText={formik.handleChange("username")}
+              onBlur={formik.handleBlur("username")}
               autoCapitalize="none"
-              placeholderTextColor={'#ccc'}
+              placeholderTextColor={"#ccc"}
             />
             {formik.touched.username && formik.errors.username ? (
-              <Text style={styles.errorText}>{formik.errors.username}</Text>
+              <Text className="text-[#ff4d4d] mb-1">
+                {formik.errors.username}
+              </Text>
             ) : null}
             <TextInput
-              style={styles.textInput}
+              className="h-14 my-2 border-[#444] border rounded-md mt-3 px-2 bg-[#333] text-white"
               placeholder="Password *"
               secureTextEntry={true}
               value={formik.values.password}
-              onChangeText={formik.handleChange('password')}
-              onBlur={formik.handleBlur('password')}
-              error={formik.touched.password && Boolean(formik.errors.password)}
-              helperText={formik.touched.password && formik.errors.password}
-              placeholderTextColor={'#ccc'}
+              onChangeText={formik.handleChange("password")}
+              onBlur={formik.handleBlur("password")}
+              placeholderTextColor={"#ccc"}
             />
             {formik.touched.password && formik.errors.password ? (
-              <Text style={styles.errorText}>{formik.errors.password}</Text>
+              <Text className="text-[#ff4d4d] mb-1">
+                {formik.errors.password}
+              </Text>
             ) : null}
-            <View style={styles.buttonContainer}>
+            <View className="flex flex-row justify-between items-center mt-5">
               <TouchableOpacity onPress={handleForgotPasswordClick}>
-                <Text style={styles.forgotPasswordLink}>Forgot password?</Text>
+                <Text className="text-[#0096ff] self-center">
+                  Forgot password?
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={formik.handleSubmit}
-                disabled={isLoginUserAccountReqLoading}
-                style={styles.loginButton}>
-                <Text style={styles.loginButtonText}>
-                  {isLoginUserAccountReqLoading ? 'Loading...' : 'Login'}
+                disabled={isLoginUserAccountReqLoading}>
+                <Text className="text-white text-lg bg-[#0096ff] py-2 px-5 rounded-full">
+                  {isLoginUserAccountReqLoading ? "Loading..." : "Login"}
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.signUpContainer}>
-              <Text style={styles.signUpText}>Don't have an account?  </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('AuthSignup')}>
-                <Text style={styles.signUpLink}>Sign Up</Text>
+            <View className="flex flex-row justify-center mt-7">
+              <Text className="text-white">Don't have an account? </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("AuthSignup")}>
+                <Text className="text-[#0096ff]">Sign Up</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('Music')}>
-              <Text style={styles.musicText}>Enjoy music instead</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Music")}>
+              <Text className="text-[#0096ff] mt-4 text-center underline">
+                Enjoy music instead
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -143,106 +146,5 @@ const Login = ({navigation}) => {
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    backgroundColor: '#121212',
-  },
-  authMain: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  authForms: {
-    width: '80%',
-  },
-  welcomeBackText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-    color: '#fff',
-  },
-  credentialsText: {
-    fontSize: 14,
-    color: '#ccc',
-    textAlign: 'center',
-  },
-  textInput: {
-    height: 50,
-    borderColor: '#444',
-    borderWidth: 1,
-    borderRadius: 10,
-    marginTop: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#333',
-    color: '#fff',
-  },
-  errorText: {
-    color: '#ff4d4d',
-    marginBottom: 5,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  forgotPasswordLink: {
-    color: '#0096ff',
-    alignSelf: 'center',
-  },
-  loginButton: {
-    backgroundColor: '#0096ff',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-  },
-  loginButtonText: {
-    color: '#fff',
-  },
-  signUpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 30,
-  },
-  signUpText: {
-    color: '#fff',
-  },
-  signUpLink: {
-    color: '#0096ff',
-  },
-  musicText: {
-    marginTop: 15,
-    alignSelf: 'center',
-    color: '#0096ff',
-    textDecorationLine: 'underline',
-  },
-  logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 15,
-  },
-  logo: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 10,
-  },
-  alertContainer: {
-    backgroundColor: '#331a1a',
-    borderLeftColor: '#ff4d4d',
-    borderLeftWidth: 3,
-    padding: 10,
-    borderRadius: 7,
-    marginTop: 20,
-  },
-  alertText: {
-    color: '#ff4d4d',
-    textAlign: 'center',
-  },
-});
 
 export default Login;

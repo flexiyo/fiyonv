@@ -152,7 +152,7 @@ const TrackItem = memo(({track, onOpenDownloadModal}) => {
   );
 });
 
-const TrackItemsList = memo(({tracks, onOpenDownloadModal}) => {
+const TrackList = memo(({tracks, onOpenDownloadModal}) => {
   const renderItem = useCallback(
     ({item, index}) => (
       <TrackItem
@@ -182,4 +182,4 @@ const TrackItemsList = memo(({tracks, onOpenDownloadModal}) => {
   );
 });
 
-export default TrackItemsList;
+export default TrackList;

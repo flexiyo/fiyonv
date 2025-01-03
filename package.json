@@ -27,7 +27,6 @@
     "react-native-fs-turbo": "^0.3.0",
     "react-native-gesture-handler": "^2.21.2",
     "react-native-mmkv": "^3.2.0",
-    "react-native-modal": "^13.0.1",
     "react-native-reanimated": "^3.16.6",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.4.0",
